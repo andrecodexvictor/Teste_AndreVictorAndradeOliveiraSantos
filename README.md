@@ -29,6 +29,9 @@ API REST para análise de despesas de operadoras de planos de saúde, consumindo
 | **API REST** | Endpoints para consulta de operadoras e despesas |
 | **Paginação** | Listagem paginada com filtros flexíveis |
 | **Estatísticas** | Agregações e rankings com cache em memória |
+| **SQL Analytics** | Queries complexas para análise de crescimento e distribuição |
+| **Observabilidade** | Logging estruturado, tracing, métricas e health check |
+| **Qualidade** | Testes automatizados e CI-ready |
 | **Validação de CNPJ** | Verificação completa dos dígitos verificadores |
 | **Qualidade de Dados** | Marcação de registros problemáticos (sem remoção) |
 
@@ -106,6 +109,40 @@ O **MySQL** foi escolhido pelos seguintes fatores:
 3. **Adequação ao Caso de Uso**: Para o volume de dados estimado (~10K registros), as features avançadas do PostgreSQL não seriam necessárias
 
 Em cenários com queries analíticas mais complexas ou maior volume, PostgreSQL seria reconsiderado.
+
+---
+
+---
+
+## 👁️ Observabilidade
+
+Implementação robusta para ambiente de produção:
+
+### 1. Logging Estruturado (Loguru)
+- Logs JSON-ready com rotação diária
+- Contexto de requisição (Request ID) em todos os logs
+- Tratamento de exceções com traceback completo
+
+### 2. Monitoramento
+- **`/health`**: Verificação de status para Load Balancers/K8s
+- **`/metrics`**: Métricas de performance (tempo de resposta, status codes)
+- **Tracing**: Header `X-Request-ID` para rastreamento distribuído
+
+---
+
+## 🧪 Testes e Qualidade
+
+O projeto inclui suíte de testes automatizados com `pytest`:
+
+### Estrutura de Testes
+- **Unitários**: Regras de domínio e validações (CNPJ, Entidades)
+- **Integração**: Casos de uso e comunicação com banco (mocked)
+- **E2E (API)**: Testes de endpoints com `TestClient`
+
+### Executando Testes
+```bash
+pytest
+```
 
 ---
 
