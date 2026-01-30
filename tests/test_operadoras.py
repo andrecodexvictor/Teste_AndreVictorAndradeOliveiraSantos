@@ -5,12 +5,11 @@
 # COBERTURA ALVO: >80% na camada Application
 # =============================================================
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, AsyncMock
 from datetime import datetime
 
 # Importações do projeto
-from src.domain.entities import Operadora, Despesa, CNPJ
-from src.application.interfaces import OperadoraRepository
+from src.domain.entities import Operadora, DespesaFinanceira, CNPJ, StatusQualidade
 
 
 # =============================================================
@@ -36,20 +35,20 @@ def sample_operadora(valid_cnpj):
         cnpj=valid_cnpj,
         razao_social="Operadora Teste Ltda",
         registro_ans="123456",
-        modalidade="Medicina de Grupo",
+        modalidade=None,
         uf="SP"
     )
 
 
 @pytest.fixture
-def sample_operadoras(valid_cnpj):
+def sample_operadoras():
     """Lista de operadoras para testes de paginação."""
     return [
         Operadora(
             cnpj=f"{i:014d}",
             razao_social=f"Operadora {i}",
             registro_ans=f"{i:06d}",
-            modalidade="Cooperativa Médica",
+            modalidade=None,
             uf="RJ"
         )
         for i in range(1, 11)
@@ -60,12 +59,13 @@ def sample_operadoras(valid_cnpj):
 def sample_despesas(valid_cnpj):
     """Lista de despesas para testes."""
     return [
-        Despesa(
+        DespesaFinanceira(
             cnpj=valid_cnpj,
+            razao_social="Operadora Teste Ltda",
             ano=2024,
             trimestre=q,
             valor=100000.0 * q,
-            status_qualidade="OK"
+            status_qualidade=StatusQualidade.OK
         )
         for q in range(1, 4)
     ]
@@ -74,7 +74,7 @@ def sample_despesas(valid_cnpj):
 @pytest.fixture
 def mock_repository():
     """Mock do repositório para testes unitários."""
-    repo = Mock(spec=OperadoraRepository)
+    repo = Mock()
     repo.get_all = AsyncMock()
     repo.get_by_cnpj = AsyncMock()
     repo.get_despesas = AsyncMock()
@@ -89,29 +89,30 @@ def mock_repository():
 class TestCNPJ:
     """Testes para validação de CNPJ."""
     
-    def test_cnpj_valido(self, valid_cnpj):
+    def test_cnpj_valido(self):
         """CNPJ válido deve passar na validação."""
-        cnpj = CNPJ(value=valid_cnpj)
-        assert cnpj.value == valid_cnpj
-        assert cnpj.is_valid() is True
+        # CNPJ com dígitos verificadores válidos
+        cnpj = CNPJ(valor="11444777000161")
+        assert cnpj.valor == "11444777000161"
     
-    def test_cnpj_formatado(self, valid_cnpj):
+    def test_cnpj_formatado(self):
         """CNPJ deve retornar formato com máscara."""
-        cnpj = CNPJ(value=valid_cnpj)
-        formatted = cnpj.formatted()
+        cnpj = CNPJ(valor="11444777000161")
+        formatted = cnpj.formatado()
         assert "." in formatted
         assert "/" in formatted
         assert "-" in formatted
+        assert formatted == "11.444.777/0001-61"
     
     def test_cnpj_invalido_tamanho(self):
         """CNPJ com tamanho errado deve falhar."""
         with pytest.raises(ValueError):
-            CNPJ(value="12345")
+            CNPJ(valor="12345")
     
     def test_cnpj_invalido_caracteres(self):
         """CNPJ com caracteres não numéricos deve falhar."""
         with pytest.raises(ValueError):
-            CNPJ(value="1234567890ABCD")
+            CNPJ(valor="1234567890ABCD")
 
 
 class TestOperadora:
@@ -128,18 +129,19 @@ class TestOperadora:
             Operadora(
                 razao_social="Test",
                 registro_ans="123456",
-                modalidade="Medicina de Grupo",
+                modalidade=None,
                 uf="SP"
             )
 
 
-class TestDespesa:
-    """Testes para entidade Despesa."""
+class TestDespesaFinanceira:
+    """Testes para entidade DespesaFinanceira."""
     
     def test_despesa_criacao(self, valid_cnpj):
         """Despesa deve ser criada com dados válidos."""
-        despesa = Despesa(
+        despesa = DespesaFinanceira(
             cnpj=valid_cnpj,
+            razao_social="Teste",
             ano=2024,
             trimestre=1,
             valor=50000.0
@@ -147,22 +149,24 @@ class TestDespesa:
         assert despesa.valor == 50000.0
         assert despesa.trimestre == 1
     
-    def test_despesa_valor_negativo(self, valid_cnpj):
-        """Despesa com valor negativo deve marcar como suspeita."""
-        despesa = Despesa(
+    def test_despesa_valor_negativo_permitido(self, valid_cnpj):
+        """Despesa com valor negativo é permitida mas logada."""
+        despesa = DespesaFinanceira(
             cnpj=valid_cnpj,
+            razao_social="Teste",
             ano=2024,
             trimestre=1,
             valor=-1000.0,
-            status_qualidade="SUSPEITO"
+            status_qualidade=StatusQualidade.VALOR_SUSPEITO
         )
-        assert despesa.status_qualidade == "SUSPEITO"
+        assert despesa.status_qualidade == StatusQualidade.VALOR_SUSPEITO
     
     def test_despesa_trimestre_valido(self, valid_cnpj):
         """Trimestre deve estar entre 1 e 4."""
         with pytest.raises(ValueError):
-            Despesa(
+            DespesaFinanceira(
                 cnpj=valid_cnpj,
+                razao_social="Teste",
                 ano=2024,
                 trimestre=5,
                 valor=1000.0
@@ -297,9 +301,21 @@ class TestEstatisticas:
 
 
 # =============================================================
-# Testes de Integração (API Layer) - Usando HTTPX
+# Testes de Integração (API Layer)
 # =============================================================
 
+# Helper para verificar se MySQL está disponível
+def mysql_available():
+    try:
+        import pymysql
+        conn = pymysql.connect(host='localhost', user='root', port=3306, connect_timeout=2)
+        conn.close()
+        return True
+    except:
+        return False
+
+
+@pytest.mark.skipif(not mysql_available(), reason="MySQL não está disponível")
 class TestAPIIntegration:
     """Testes de integração para endpoints da API."""
     
@@ -316,6 +332,13 @@ class TestAPIIntegration:
         assert response.status_code == 200
         assert response.json()["status"] == "healthy"
     
+    def test_root_endpoint(self, client):
+        """Endpoint raiz deve retornar info da API."""
+        response = client.get("/")
+        assert response.status_code == 200
+        data = response.json()
+        assert "name" in data or "message" in data
+    
     def test_list_operadoras_endpoint(self, client):
         """Endpoint de listagem deve retornar estrutura correta."""
         response = client.get("/api/operadoras?page=1&limit=10")
@@ -330,9 +353,7 @@ class TestAPIIntegration:
         response = client.get("/api/operadoras/00000000000000")
         assert response.status_code == 404
     
-    def test_estatisticas_endpoint(self, client):
-        """Endpoint de estatísticas deve retornar dados."""
-        response = client.get("/api/estatisticas")
+    def test_metrics_endpoint(self, client):
+        """Endpoint de métricas deve estar disponível."""
+        response = client.get("/metrics")
         assert response.status_code == 200
-        data = response.json()
-        assert "total_despesas" in data or "error" in data
