@@ -1,3 +1,4 @@
+from __future__ import annotations
 # =============================================================
 # estatisticas.py - Router para Endpoints de Estatísticas
 # =============================================================

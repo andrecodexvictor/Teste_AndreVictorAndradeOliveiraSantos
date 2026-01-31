@@ -1,3 +1,4 @@
+from __future__ import annotations
 # =============================================================
 # schemas.py - Schemas de Request/Response da API
 # =============================================================
@@ -19,7 +20,7 @@
 # - *InDB: Representação completa (inclui IDs gerados).
 # =============================================================
 from pydantic import BaseModel, Field
-from typing import List, Optional, Generic, TypeVar
+from typing import List, Optional
 from datetime import datetime
 
 
@@ -40,14 +41,6 @@ class OperadoraResponse(BaseModel):
     registro_ans: Optional[str] = Field(None, description="Registro na ANS (6 dígitos)")
     modalidade: Optional[str] = Field(None, description="Modalidade de operação")
     uf: Optional[str] = Field(None, description="UF da sede")
-    
-    # DECISÃO: Formatar CNPJ na resposta.
-    # JUSTIFICATIVA: Facilita leitura no frontend.
-    @property
-    def cnpj_formatado(self) -> str:
-        """Retorna CNPJ formatado: XX.XXX.XXX/XXXX-XX"""
-        v = self.cnpj
-        return f"{v[:2]}.{v[2:5]}.{v[5:8]}/{v[8:12]}-{v[12:]}"
     
     class Config:
         from_attributes = True  # Permite criar de ORM models
@@ -131,53 +124,31 @@ class DistribuicaoUFResponse(BaseModel):
 # =============================================================
 # SCHEMAS DE PAGINAÇÃO
 # =============================================================
-# DECISÃO: Usar schema genérico de paginação.
+# DECISÃO: Usar schemas específicos de paginação.
 # JUSTIFICATIVA:
-# - Evita repetição (DRY).
-# - Garantia de resposta consistente em todos os endpoints.
+# - Compatibilidade com Python 3.9 e Pydantic v2.
+# - Evita problemas de geração do OpenAPI schema.
 # - Frontend pode usar o mesmo componente de paginação.
 # =============================================================
-T = TypeVar("T")
 
-
-class PaginatedResponse(BaseModel, Generic[T]):
+class PaginatedOperadoraResponse(BaseModel):
     """
-    Schema genérico para respostas paginadas.
-    
-    CAMPOS:
-    - data: Lista de items da página atual.
-    - total: Total de items (todas as páginas).
-    - page: Página atual (começa em 1).
-    - limit: Items por página.
-    - pages: Total de páginas (calculado).
-    
-    DECISÃO: Incluir metadados de paginação.
-    JUSTIFICATIVA:
-    - Frontend precisa saber total para exibir paginação.
-    - Padrão comum em APIs REST.
-    - Facilita implementação de "Load More" ou "Infinite Scroll".
+    Schema para respostas paginadas de operadoras.
     """
-    data: List[T] = Field(..., description="Items da página atual")
+    data: List[OperadoraResponse] = Field(..., description="Items da página atual")
     total: int = Field(..., description="Total de items")
     page: int = Field(..., ge=1, description="Página atual")
     limit: int = Field(..., ge=1, le=100, description="Items por página")
-    
-    @property
-    def pages(self) -> int:
-        """Calcula total de páginas."""
-        if self.limit == 0:
-            return 0
-        return (self.total + self.limit - 1) // self.limit
-    
-    @property
-    def has_next(self) -> bool:
-        """Indica se há próxima página."""
-        return self.page < self.pages
-    
-    @property
-    def has_prev(self) -> bool:
-        """Indica se há página anterior."""
-        return self.page > 1
+
+
+class PaginatedDespesaResponse(BaseModel):
+    """
+    Schema para respostas paginadas de despesas.
+    """
+    data: List[DespesaResponse] = Field(..., description="Items da página atual")
+    total: int = Field(..., description="Total de items")
+    page: int = Field(..., ge=1, description="Página atual")
+    limit: int = Field(..., ge=1, le=100, description="Items por página")
 
 
 # =============================================================

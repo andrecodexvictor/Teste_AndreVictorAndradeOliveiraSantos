@@ -1,3 +1,4 @@
+from __future__ import annotations
 # =============================================================
 # operadoras.py - Router para Endpoints de Operadoras
 # =============================================================
@@ -28,7 +29,7 @@ from src.interface.api.schemas import (
     OperadoraResponse,
     OperadoraDetalheResponse,
     DespesaResponse,
-    PaginatedResponse,
+    PaginatedOperadoraResponse,
     ErrorResponse,
 )
 
@@ -55,7 +56,7 @@ router = APIRouter(
 # =============================================================
 @router.get(
     "",
-    response_model=PaginatedResponse[OperadoraResponse],
+    response_model=PaginatedOperadoraResponse,
     summary="Lista operadoras com paginação",
     description="""
     Retorna lista paginada de operadoras de plano de saúde.
@@ -113,7 +114,7 @@ async def listar_operadoras(
         cnpj_filter=cnpj,
     )
     
-    return PaginatedResponse(
+    return PaginatedOperadoraResponse(
         data=[OperadoraResponse.model_validate(o) for o in operadoras],
         total=total,
         page=page,

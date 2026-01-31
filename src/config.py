@@ -54,8 +54,11 @@ class Settings(BaseSettings):
         - Funciona bem em Windows sem configuração extra.
         - Alternativa seria mysqlclient (mais rápido, mas precisa de C compiler).
         """
+        from urllib.parse import quote_plus
+        # URL encode da senha para suportar caracteres especiais (@, #, etc.)
+        encoded_password = quote_plus(self.DATABASE_PASSWORD)
         return (
-            f"mysql+pymysql://{self.DATABASE_USER}:{self.DATABASE_PASSWORD}"
+            f"mysql+pymysql://{self.DATABASE_USER}:{encoded_password}"
             f"@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"
             "?charset=utf8mb4"  # Suporte completo a Unicode (emojis, etc.)
         )

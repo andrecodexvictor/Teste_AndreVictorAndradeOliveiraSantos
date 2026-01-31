@@ -8,7 +8,7 @@
 # --- Backend Core ---
 fastapi>=0.109.0        # Framework API
 uvicorn[standard]>=0.27.0 # Servidor ASGI
-pydantic>=2.5.3         # Validação
+pydantic>=2.5.3,<2.12.0 # Validação (< 2.12 evita bug OpenAPI)
 pydantic-settings>=2.1.0 # Gestão de Configuração
 
 # --- Database ---

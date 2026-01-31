@@ -127,9 +127,9 @@ app = FastAPI(
     * **Banco**: MySQL 8.0 com SQLAlchemy ORM
     """,
     lifespan=lifespan,
-    docs_url="/docs",  # Swagger UI
-    redoc_url="/redoc",  # ReDoc
-    openapi_url="/openapi.json",
+    docs_url=None,  # Desabilitado - usando /docs customizado
+    redoc_url=None,  # Desabilitado
+    openapi_url=None,  # Desabilitado
 )
 
 
@@ -229,6 +229,96 @@ async def global_exception_handler(request: Request, exc: Exception):
 # =============================================================
 app.include_router(operadoras.router)
 app.include_router(estatisticas.router)
+
+
+# =============================================================
+# DOCUMENTAÇÃO FALLBACK (para Python < 3.10)
+# =============================================================
+# NOTA: Se usar Python 3.9, o Swagger automático pode falhar.
+# Esta página HTML serve como fallback.
+# =============================================================
+from fastapi.responses import HTMLResponse
+
+@app.get("/docs", include_in_schema=False)
+async def api_docs():
+    """Swagger UI customizado."""
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>API de Despesas - Documentação</title>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 40px; background: #1a1a2e; color: #eee; }
+            h1 { color: #0ea5e9; }
+            h2 { color: #38bdf8; border-bottom: 1px solid #333; padding-bottom: 10px; }
+            .endpoint { background: #16213e; padding: 15px; border-radius: 8px; margin: 15px 0; }
+            .method { display: inline-block; padding: 4px 12px; border-radius: 4px; font-weight: bold; margin-right: 10px; }
+            .get { background: #22c55e; color: #fff; }
+            .post { background: #3b82f6; color: #fff; }
+            code { background: #0f172a; padding: 2px 6px; border-radius: 4px; }
+            a { color: #38bdf8; }
+            .desc { color: #94a3b8; margin-top: 8px; }
+        </style>
+    </head>
+    <body>
+        <h1>🏥 API de Análise de Despesas</h1>
+        <p>Intuitive Care - Teste Técnico para Estágio</p>
+        
+        <h2>📋 Operadoras</h2>
+        
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/api/operadoras</code>
+            <div class="desc">Lista paginada de operadoras. Params: page, limit, razao_social, cnpj</div>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/api/operadoras/{cnpj}</code>
+            <div class="desc">Detalhes de uma operadora específica</div>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/api/operadoras/{cnpj}/despesas</code>
+            <div class="desc">Histórico de despesas de uma operadora. Params: ano, trimestre</div>
+        </div>
+        
+        <h2>📊 Estatísticas</h2>
+        
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/api/estatisticas</code>
+            <div class="desc">Estatísticas gerais: total, média, top 5 operadoras</div>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/api/estatisticas/distribuicao-uf</code>
+            <div class="desc">Distribuição de despesas por UF</div>
+        </div>
+        
+        <h2>🔧 Utilitários</h2>
+        
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/health</code>
+            <div class="desc">Health check - verifica se a API está saudável</div>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/metrics</code>
+            <div class="desc">Métricas de performance da API</div>
+        </div>
+        
+        <hr style="margin: 30px 0; border-color: #333;">
+        <p style="color: #666;">Versão 1.0.0 | <a href="/">Voltar</a></p>
+    </body>
+    </html>
+    """)
 
 
 # =============================================================
