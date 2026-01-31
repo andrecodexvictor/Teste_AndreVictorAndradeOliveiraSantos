@@ -81,13 +81,13 @@ class TestObterEstatisticas:
     
     @pytest.mark.unit
     def test_top_5_operadoras_formato(self, client):
-        """Top 5 deve ter formato correto."""
+        """Top 5 deve ter formato correto (razao_social + total, sem cnpj)."""
         stats_mock = {
             "total_despesas": 1000000.0,
             "media_despesas": 50000.0,
             "quantidade_registros": 20,
             "top_5_operadoras": [
-                {"cnpj": "11111111000111", "razao_social": "Operadora Teste", "total": 200000.0},
+                {"razao_social": "Operadora Teste", "total": 200000.0},
             ]
         }
         
@@ -101,9 +101,10 @@ class TestObterEstatisticas:
                     
                     assert len(data["top_5_operadoras"]) == 1
                     top = data["top_5_operadoras"][0]
-                    assert "cnpj" in top
+                    # TopOperadoraResponse schema só tem razao_social e total
                     assert "razao_social" in top
                     assert "total" in top
+                    # cnpj não faz parte do schema de ranking
 
 
 # =============================================================
