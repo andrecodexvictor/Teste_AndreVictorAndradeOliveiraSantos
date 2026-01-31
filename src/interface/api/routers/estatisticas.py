@@ -7,7 +7,7 @@ from __future__ import annotations
 # Este router agrupa endpoints de agregação e analytics.
 # São queries mais pesadas, então implementamos cache.
 # =============================================================
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from functools import lru_cache
@@ -17,6 +17,7 @@ from typing import List
 from src.infrastructure.database.connection import get_db
 from src.infrastructure.database.repositories import DespesaRepository
 from src.infrastructure.database.models import DespesaORM, OperadoraORM
+from src.infrastructure.rate_limiter import limiter
 from src.interface.api.schemas import (
     EstatisticasResponse,
     TopOperadoraResponse,
@@ -92,9 +93,13 @@ def set_cached_estatisticas(data):
     
     **Cache:**
     Resultados são cacheados por 15 minutos para melhor performance.
+    
+    **Rate Limit:** 50 requisições/minuto por IP (query pesada)
     """,
 )
+@limiter.limit("50/minute")
 async def obter_estatisticas(
+    request: Request,  # Required for rate limiter
     db: Session = Depends(get_db),
 ):
     """
@@ -147,9 +152,13 @@ async def obter_estatisticas(
     Útil para gráficos de pizza/barra no frontend.
     
     **Ordenação:** Por total de despesas (maior primeiro).
+    
+    **Rate Limit:** 50 requisições/minuto por IP (query pesada)
     """,
 )
+@limiter.limit("50/minute")
 async def obter_distribuicao_uf(
+    request: Request,  # Required for rate limiter
     db: Session = Depends(get_db),
 ):
     """

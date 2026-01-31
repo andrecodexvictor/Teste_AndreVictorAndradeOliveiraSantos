@@ -15,6 +15,9 @@ pydantic-settings>=2.1.0 # Gestão de Configuração
 sqlalchemy>=2.0.25      # ORM
 pymysql>=1.1.0          # Driver MySQL
 
+# --- Security ---
+slowapi>=0.1.9          # Rate limiting
+
 # --- Data Processing (ETL) ---
 pandas>=2.2.0           # Dataframes
 openpyxl>=3.1.2         # Excel
@@ -29,6 +32,7 @@ python-dotenv>=1.0.1    # Variáveis ambiente
 # --- Testing ---
 pytest>=8.0.0
 pytest-asyncio>=0.23.5
+pytest-cov>=4.1.0       # Coverage reports
 httpx>=0.26.0
 
 # --- Frontend Tools (Opcional - se for rodar scripts python no front) ---

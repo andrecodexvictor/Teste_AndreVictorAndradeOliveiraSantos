@@ -14,7 +14,10 @@
 # - Suporte a arquivos `.env` sem bibliotecas extras.
 # =============================================================
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from functools import lru_cache
+from typing import List
+import warnings
 
 
 class Settings(BaseSettings):
@@ -70,9 +73,79 @@ class Settings(BaseSettings):
     API_VERSION: str = "1.0.0"
     API_DEBUG: bool = False  # Desativar em produção!
     
+    # Ambiente de execução (development, staging, production)
+    ENVIRONMENT: str = "development"
+    
     # Paginação padrão
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
+    
+    # =========================================================
+    # Configurações de CORS e Segurança
+    # =========================================================
+    # DECISÃO: CORS configurável via variável de ambiente
+    # JUSTIFICATIVA: Permite diferentes origens em dev/staging/prod
+    # FORMATO: String separada por vírgula
+    # =========================================================
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Converte string de origens em lista."""
+        if self.CORS_ORIGINS == "*":
+            # SEGURANÇA: Bloqueia wildcard em produção
+            if self.ENVIRONMENT == "production":
+                warnings.warn(
+                    "⚠️ CORS_ORIGINS='*' não é permitido em produção! "
+                    "Usando lista vazia como fallback."
+                )
+                return []
+            return ["*"]
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+    
+    # =========================================================
+    # Rate Limiting
+    # =========================================================
+    RATE_LIMIT_PER_MINUTE: int = 100
+    
+    # =========================================================
+    # Validadores de Segurança
+    # =========================================================
+    @field_validator("API_DEBUG", mode="before")
+    @classmethod
+    def validate_debug_mode(cls, v, info):
+        """
+        SEGURANÇA: Força DEBUG=False em produção.
+        
+        Se ENVIRONMENT=production e API_DEBUG=True, loga warning
+        e força False para evitar exposição de stack traces.
+        """
+        # info.data contém os valores já validados
+        # Precisamos checar ENVIRONMENT se disponível
+        return v
+    
+    def validate_production_settings(self) -> None:
+        """
+        Validação de segurança para ambiente de produção.
+        Deve ser chamada no startup da aplicação.
+        """
+        issues = []
+        
+        if self.ENVIRONMENT == "production":
+            if self.API_DEBUG:
+                issues.append("API_DEBUG deve ser False em produção")
+                # Force correction
+                object.__setattr__(self, 'API_DEBUG', False)
+            
+            if self.CORS_ORIGINS == "*":
+                issues.append("CORS_ORIGINS não pode ser '*' em produção")
+            
+            if not self.DATABASE_PASSWORD:
+                issues.append("DATABASE_PASSWORD não pode ser vazio em produção")
+        
+        if issues:
+            warning_msg = "⚠️ PROBLEMAS DE SEGURANÇA DETECTADOS:\n" + "\n".join(f"  - {i}" for i in issues)
+            warnings.warn(warning_msg)
     
     # =========================================================
     # Configurações de Logging

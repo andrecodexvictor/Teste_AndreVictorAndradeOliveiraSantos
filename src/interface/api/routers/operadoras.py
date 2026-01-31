@@ -15,7 +15,7 @@ from __future__ import annotations
 # - Acessar banco diretamente (usa repositório).
 # - Fazer cálculos que deveriam estar em Use Cases.
 # =============================================================
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
@@ -25,6 +25,7 @@ from src.infrastructure.database.repositories import (
     OperadoraRepository,
     DespesaRepository,
 )
+from src.infrastructure.rate_limiter import limiter
 from src.interface.api.schemas import (
     OperadoraResponse,
     OperadoraDetalheResponse,
@@ -69,13 +70,17 @@ router = APIRouter(
     - `razao_social`: Busca por nome (case-insensitive, parcial)
     - `cnpj`: Busca por CNPJ (parcial)
     
+    **Rate Limit:** 100 requisições/minuto por IP
+    
     **Exemplo:**
     ```
     GET /api/operadoras?page=1&limit=20&razao_social=UNIMED
     ```
     """,
 )
+@limiter.limit("100/minute")
 async def listar_operadoras(
+    request: Request,  # Required for rate limiter
     page: int = Query(default=1, ge=1, description="Número da página"),
     limit: int = Query(
         default=settings.DEFAULT_PAGE_SIZE,
@@ -139,12 +144,16 @@ async def listar_operadoras(
     - Dados cadastrais
     - Total de despesas acumuladas
     - Quantidade de trimestres com dados
+    
+    **Rate Limit:** 100 requisições/minuto por IP
     """,
     responses={
         404: {"model": ErrorResponse, "description": "Operadora não encontrada"},
     },
 )
+@limiter.limit("100/minute")
 async def obter_operadora(
+    request: Request,  # Required for rate limiter
     cnpj: str,
     db: Session = Depends(get_db),
 ):
@@ -204,9 +213,13 @@ async def obter_operadora(
     
     **Ordenação:**
     Resultados ordenados por período (mais recente primeiro).
+    
+    **Rate Limit:** 100 requisições/minuto por IP
     """,
 )
+@limiter.limit("100/minute")
 async def listar_despesas_operadora(
+    request: Request,  # Required for rate limiter
     cnpj: str,
     ano: Optional[int] = Query(default=None, ge=2000, le=2100, description="Filtrar por ano"),
     trimestre: Optional[int] = Query(default=None, ge=1, le=4, description="Filtrar por trimestre"),

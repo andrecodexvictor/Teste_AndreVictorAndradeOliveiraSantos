@@ -73,6 +73,9 @@ temp_skills/
 # Documentação interna (não versionar)
 tutorial.md
 
+# Quality Assurance (debug, reviews, audits)
+quality_assurance/
+
 # --- Sistema Operacional ---
 Thumbs.db
 Desktop.ini

@@ -6,7 +6,7 @@
 # Este arquivo é o ponto de entrada da aplicação.
 # Responsabilidades:
 # 1. Criar instância do FastAPI.
-# 2. Configurar middleware (CORS, logging, errors).
+# 2. Configurar middleware (CORS, logging, errors, security).
 # 3. Registrar routers.
 # 4. Definir eventos de lifecycle (startup, shutdown).
 #
@@ -21,15 +21,19 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 from datetime import datetime
 from loguru import logger
 import sys
+import re
 
 from src.config import settings
 from src.infrastructure.database.connection import create_tables, engine
+from src.infrastructure.rate_limiter import limiter, rate_limit_exceeded_handler
 from src.interface.api.routers import operadoras, estatisticas
 from src.interface.api.schemas import HealthCheckResponse, ErrorResponse
+from slowapi.errors import RateLimitExceeded
 
 
 # =============================================================
@@ -74,6 +78,7 @@ async def lifespan(app: FastAPI):
     Gerencia ciclo de vida da aplicação.
     
     STARTUP:
+    - Valida configurações de segurança.
     - Cria tabelas do banco (se não existirem).
     - Loga início da aplicação.
     
@@ -83,8 +88,14 @@ async def lifespan(app: FastAPI):
     """
     # === STARTUP ===
     logger.info("🚀 Iniciando aplicação...")
+    
+    # Validação de segurança para produção
+    settings.validate_production_settings()
+    
     logger.info(f"📊 Modo debug: {settings.API_DEBUG}")
+    logger.info(f"🌍 Ambiente: {settings.ENVIRONMENT}")
     logger.info(f"💾 Banco de dados: {settings.DATABASE_HOST}:{settings.DATABASE_PORT}/{settings.DATABASE_NAME}")
+    logger.info(f"🔒 CORS Origins: {settings.cors_origins_list}")
     
     # Cria tabelas (em dev; produção usaria migrations)
     try:
@@ -134,34 +145,102 @@ app = FastAPI(
 
 
 # =============================================================
+# SETUP RATE LIMITER
+# =============================================================
+# Configurado ANTES dos middlewares para capturar exceções corretamente
+# =============================================================
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+
+# =============================================================
+# MIDDLEWARE: Security Headers
+# =============================================================
+# DECISÃO: Adicionar headers de segurança em todas as respostas.
+# JUSTIFICATIVA:
+# - Proteção contra clickjacking (X-Frame-Options)
+# - Proteção contra XSS (X-Content-Type-Options)
+# - Política de referrer para privacidade
+# =============================================================
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Adiciona headers de segurança em todas as respostas."""
+    
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        
+        # Proteção contra clickjacking
+        response.headers["X-Frame-Options"] = "DENY"
+        
+        # Previne MIME type sniffing
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        
+        # Política de referrer
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        
+        # Proteção XSS (browsers modernos)
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        
+        # Content Security Policy básica
+        if settings.ENVIRONMENT == "production":
+            response.headers["Content-Security-Policy"] = "default-src 'self'"
+            # HSTS para HTTPS (apenas em produção)
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
+# =============================================================
 # MIDDLEWARE: CORS
 # =============================================================
-# DECISÃO: Permitir todas as origens em desenvolvimento.
+# DECISÃO: CORS configurável via variável de ambiente.
 # JUSTIFICATIVA:
-# - Facilita testes com frontend local (localhost:5173).
-# - Em produção, restringir aos domínios conhecidos.
-#
-# CUIDADO: Em produção, trocar allow_origins=["*"] por lista específica!
+# - Segurança: Não usar wildcard (*) em produção.
+# - Flexibilidade: Diferentes origens para dev/staging/prod.
 # =============================================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: Restringir em produção
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Métodos específicos
     allow_headers=["*"],
 )
 
 
 # =============================================================
-# MIDDLEWARE: Logging de Requests
+# Função para sanitizar URLs nos logs
+# =============================================================
+def sanitize_url_for_logging(url: str) -> str:
+    """
+    Remove informações sensíveis da URL antes de logar.
+    
+    SANITIZA:
+    - Query strings com tokens/passwords
+    - Parâmetros de API keys
+    - Credenciais em URLs
+    """
+    # Remove query string completa (pode conter dados sensíveis)
+    sanitized = re.sub(r'\?.*$', '?[REDACTED]', url) if '?' in url else url
+    
+    # Alternativa: remover apenas parâmetros específicos
+    # sanitized = re.sub(r'(password|token|key|secret|api_key)=[^&]*', r'\1=[REDACTED]', url)
+    
+    return sanitized
+
+
+# =============================================================
+# MIDDLEWARE: Logging de Requests (Sanitizado)
 # =============================================================
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """
-    Loga todas as requisições HTTP.
+    Loga todas as requisições HTTP de forma segura.
     
-    Útil para debugging e auditoria.
-    Mostra: método, path, tempo de resposta.
+    SEGURANÇA:
+    - Não loga query strings (podem conter tokens).
+    - Não loga headers de autorização.
+    - Não loga body de requests.
     """
     start_time = datetime.now()
     
@@ -171,7 +250,10 @@ async def log_requests(request: Request, call_next):
     # Calcula tempo de resposta
     process_time = (datetime.now() - start_time).total_seconds() * 1000
     
-    # Loga requisição
+    # Sanitiza URL antes de logar
+    safe_path = sanitize_url_for_logging(str(request.url))
+    
+    # Loga requisição (sem dados sensíveis)
     logger.info(
         f"{request.method} {request.url.path} - "
         f"Status: {response.status_code} - "
