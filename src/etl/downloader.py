@@ -186,16 +186,30 @@ class ANSDownloader:
         
         # Busca para trás no tempo
         while len(trimestres) < quantidade and year >= 2020:
-            # Verifica se existe (tentativa HEAD request)
-            trimestre_url = f"{DEMONSTRACOES_URL}/{year}/{quarter}/"
+            # Verifica se existe arquivo (tentativa HEAD request)
+            # Padrões comuns: 1T2024.zip, 2024_Q1.zip
+            patterns = [
+                f"{quarter}T{year}.zip",
+                f"{year}_{quarter}T.zip",
+                f"{year}_Q{quarter}.zip",
+            ]
             
-            try:
-                resp = self.session.head(trimestre_url, timeout=10)
-                if resp.status_code == 200:
-                    trimestres.append((year, quarter))
-                    logger.info(f"Trimestre encontrado: {year}-Q{quarter}")
-            except:
-                pass  # Ignora erros, continua buscando
+            base_url_ano = f"{DEMONSTRACOES_URL}/{year}"
+            found = False
+            
+            for pat in patterns:
+                url_to_test = f"{base_url_ano}/{pat}"
+                try:
+                    resp = self.session.head(url_to_test, timeout=10)
+                    if resp.status_code == 200:
+                        found = True
+                        break
+                except:
+                    pass
+            
+            if found:
+                trimestres.append((year, quarter))
+                logger.info(f"Trimestre encontrado: {year}-Q{quarter} (Arquivo: {pat})")
             
             # Move para trimestre anterior
             quarter -= 1
@@ -241,23 +255,29 @@ class ANSDownloader:
             f"{trimestre}t{ano}.zip",
         ]
         
-        base_url = f"{DEMONSTRACOES_URL}/{ano}/{trimestre}"
+        base_url_ano = f"{DEMONSTRACOES_URL}/{ano}"
+        base_url_trimestre = f"{DEMONSTRACOES_URL}/{ano}/{trimestre}"
         
         for pattern in patterns:
-            url = f"{base_url}/{pattern}"
+            # Tenta primeiro na pasta do ano (padrão atual: /2024/1T2024.zip)
+            urls_to_try = [
+                f"{base_url_ano}/{pattern}",
+                f"{base_url_trimestre}/{pattern}",  # Legado ou outra estrutura
+            ]
             
-            try:
-                # Verifica se arquivo existe (HEAD request)
-                resp = self.session.head(url, timeout=10)
-                
-                if resp.status_code == 200:
-                    filename = f"demonstracoes_{ano}_Q{trimestre}.zip"
-                    return self._download_file(url, filename)
+            for url in urls_to_try:
+                try:
+                    # Verifica se arquivo existe (HEAD request)
+                    resp = self.session.head(url, timeout=10)
                     
-            except requests.RequestException:
-                continue  # Tenta próximo pattern
-        
-        logger.warning(f"Não encontrado arquivo para {ano}-Q{trimestre}")
+                    if resp.status_code == 200:
+                        filename = f"demonstracoes_{ano}_Q{trimestre}.zip"
+                        return self._download_file(url, filename)
+                        
+                except requests.RequestException:
+                    continue  # Tenta próxima URL
+                    
+        logger.warning(f"Não encontrado arquivo para {ano}-Q{trimestre} em urls testadas")
         return None
     
     def baixar_operadoras_ativas(self) -> Optional[Path]:
@@ -273,8 +293,9 @@ class ANSDownloader:
         """
         # Possíveis nomes de arquivo
         patterns = [
-            "Relacao_operadoras.csv",
+            "Relatorio_cadop.csv",  # Nome atual no FTP (2025)
             "Relacao_de_Operadoras.csv",
+            "Relacao_operadoras.csv",
             "operadoras_ativas.csv",
         ]
         

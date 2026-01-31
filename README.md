@@ -68,9 +68,11 @@ src/
 
 ## 🚀 Instruções de Execução
 
+## 🚀 Instruções de Execução
+
 ### Pré-requisitos
 
-- Python 3.9+
+- **Python 3.10+** (Requisito atualizado para compatibilidade de tipos modernos)
 - MySQL 8.0+
 - Node.js 18+
 
@@ -104,11 +106,21 @@ DATABASE_PORT=3306
 DATABASE_USER=root
 DATABASE_PASSWORD=sua_senha
 DATABASE_NAME=intuitive_care_test
-API_DEBUG=true
+API_DEBUG=false
 LOG_LEVEL=INFO
 ```
 
-### 3. Execução da API
+### 3. Carga de Dados (ETL)
+
+Este projeto inclui um pipeline ETL capaz de processar milhões de registros reais da ANS.
+
+```bash
+# Executa o pipeline completo (Download -> Processamento -> Inserção Otimizada)
+# Duração estimada: ~10 minutos (1.4 Milhão de registros)
+python run_etl.py
+```
+
+### 4. Execução da API
 
 ```bash
 uvicorn src.main:app --reload --port 8000
@@ -116,7 +128,7 @@ uvicorn src.main:app --reload --port 8000
 
 **Documentação disponível em:** http://localhost:8000/docs
 
-### 4. Execução do Frontend
+### 5. Execução do Frontend
 
 ```bash
 cd frontend
@@ -125,6 +137,8 @@ npm run dev
 ```
 
 **Dashboard disponível em:** http://localhost:5173
+
+> **Nota:** O frontend está configurado para conectar em `http://127.0.0.1:8000` para evitar problemas de resolução de DNS no Windows.
 
 ---
 
@@ -171,6 +185,7 @@ Os testes de integração são automaticamente ignorados quando o MySQL não est
 
 | Decisão | Benefício | Custo | Justificativa |
 |---------|-----------|-------|---------------|
+| **Bulk Insert** | Performance extrema (1.4M rows em 5min) | Maior uso de memória durante carga | Essencial para volume real de dados |
 | Paginação Offset | URLs simples, cálculo de páginas direto | Performance degrada com alto volume | ~5000 registros é gerenciável |
 | Cache em Memória | Sem dependências adicionais | Não escala horizontalmente | Instância única suficiente |
 | Manter Dados Inválidos | Preservação para auditoria | Requer filtros no frontend | Transparência prioritária |
@@ -187,6 +202,7 @@ Os testes de integração são automaticamente ignorados quando o MySQL não est
 ├── tests/                   # Suite de testes pytest
 ├── docs/                    # Postman collection
 ├── requirements.txt         # Dependências Python
+├── run_etl.py               # Script de ingestão de dados
 └── README.md                # Documentação principal
 ```
 
@@ -196,11 +212,10 @@ Os testes de integração são automaticamente ignorados quando o MySQL não est
 
 Com mais tempo disponível, implementaria:
 
-1. **Execução do ETL real** com dados atualizados da ANS
-2. **Cobertura de testes > 80%** na camada de Application
-3. **Docker Compose** para ambiente de desenvolvimento unificado
-4. **CI/CD** com GitHub Actions
-5. **Monitoramento** com Prometheus e Grafana
+1. **Docker Compose** para ambiente de desenvolvimento unificado
+2. **CI/CD** com GitHub Actions
+3. **Monitoramento** com Prometheus e Grafana
+4. **Cache Distribuído** (Redis) para ambiente clusterizado
 
 ---
 

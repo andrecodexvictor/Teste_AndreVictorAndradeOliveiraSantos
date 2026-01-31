@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     # =========================================================
     API_TITLE: str = "Intuitive Care - API de Análise de Despesas"
     API_VERSION: str = "1.0.0"
-    API_DEBUG: bool = True  # Desativar em produção!
+    API_DEBUG: bool = False  # Desativar em produção!
     
     # Paginação padrão
     DEFAULT_PAGE_SIZE: int = 20
