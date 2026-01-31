@@ -12,8 +12,9 @@ EXECUÇÃO:
     python run_etl.py
 
 OPÇÕES:
-    --trimestres N   Número de trimestres para baixar (padrão: 2)
+    --trimestres N   Número de trimestres para baixar (padrão: 3)
     --skip-download  Pular download se arquivos já existem
+    --export-csv     Exportar CSVs consolidados após ETL
 """
 
 import sys
@@ -192,10 +193,147 @@ def carregar_despesas_no_banco(df_despesas, session, mapa_reg_cnpj):
     return total_inserted
 
 
+def exportar_csvs_consolidados(session):
+    """
+    Exporta CSVs consolidados conforme requisitos do teste.
+    
+    Gera dois arquivos obrigatórios:
+    1. consolidado_despesas.csv - Todas as despesas consolidadas
+    2. despesas_agregadas.csv - Agregações por operadora/UF
+    
+    Localização: data/exports/
+    """
+    from sqlalchemy import func
+    
+    exports_dir = Path("data/exports")
+    exports_dir.mkdir(parents=True, exist_ok=True)
+    
+    logger.info("📤 Exportando CSVs consolidados...")
+    
+    # =========================================================
+    # 1. consolidado_despesas.csv
+    # =========================================================
+    logger.info("   📄 Gerando consolidado_despesas.csv...")
+    
+    # Query todas as despesas com join em operadoras
+    query = session.query(
+        DespesaORM.cnpj,
+        DespesaORM.razao_social,
+        DespesaORM.ano,
+        DespesaORM.trimestre,
+        DespesaORM.valor,
+        DespesaORM.status_qualidade,
+        OperadoraORM.modalidade,
+        OperadoraORM.uf,
+        OperadoraORM.registro_ans
+    ).outerjoin(
+        OperadoraORM, DespesaORM.cnpj == OperadoraORM.cnpj
+    ).order_by(
+        DespesaORM.ano.desc(),
+        DespesaORM.trimestre.desc(),
+        DespesaORM.valor.desc()
+    )
+    
+    # Converte para DataFrame
+    results = query.all()
+    df_consolidado = pd.DataFrame(results, columns=[
+        'CNPJ', 'RAZAO_SOCIAL', 'ANO', 'TRIMESTRE',
+        'VALOR', 'STATUS_QUALIDADE', 'MODALIDADE', 'UF', 'REGISTRO_ANS'
+    ])
+    
+    # Salva CSV
+    consolidado_path = exports_dir / "consolidado_despesas.csv"
+    df_consolidado.to_csv(consolidado_path, index=False, encoding='utf-8-sig')
+    logger.info(f"   ✅ Salvo: {consolidado_path} ({len(df_consolidado)} registros)")
+    
+    # =========================================================
+    # 2. despesas_agregadas.csv
+    # =========================================================
+    logger.info("   📄 Gerando despesas_agregadas.csv...")
+    
+    # Query de agregação por operadora
+    query_agg = session.query(
+        DespesaORM.cnpj,
+        DespesaORM.razao_social,
+        OperadoraORM.uf,
+        OperadoraORM.modalidade,
+        func.count(DespesaORM.id).label('total_registros'),
+        func.sum(DespesaORM.valor).label('total_despesas'),
+        func.avg(DespesaORM.valor).label('media_despesas'),
+        func.min(DespesaORM.valor).label('menor_despesa'),
+        func.max(DespesaORM.valor).label('maior_despesa'),
+        func.count(func.distinct(
+            func.concat(DespesaORM.ano, '-', DespesaORM.trimestre)
+        )).label('trimestres_ativos')
+    ).outerjoin(
+        OperadoraORM, DespesaORM.cnpj == OperadoraORM.cnpj
+    ).group_by(
+        DespesaORM.cnpj,
+        DespesaORM.razao_social,
+        OperadoraORM.uf,
+        OperadoraORM.modalidade
+    ).order_by(
+        func.sum(DespesaORM.valor).desc()
+    )
+    
+    # Converte para DataFrame
+    results_agg = query_agg.all()
+    df_agregado = pd.DataFrame(results_agg, columns=[
+        'CNPJ', 'RAZAO_SOCIAL', 'UF', 'MODALIDADE', 'TOTAL_REGISTROS',
+        'TOTAL_DESPESAS', 'MEDIA_DESPESAS', 'MENOR_DESPESA', 'MAIOR_DESPESA',
+        'TRIMESTRES_ATIVOS'
+    ])
+    
+    # Arredonda valores
+    for col in ['TOTAL_DESPESAS', 'MEDIA_DESPESAS', 'MENOR_DESPESA', 'MAIOR_DESPESA']:
+        df_agregado[col] = df_agregado[col].round(2)
+    
+    # Salva CSV
+    agregado_path = exports_dir / "despesas_agregadas.csv"
+    df_agregado.to_csv(agregado_path, index=False, encoding='utf-8-sig')
+    logger.info(f"   ✅ Salvo: {agregado_path} ({len(df_agregado)} registros)")
+    
+    # =========================================================
+    # 3. Resumo por UF (bônus)
+    # =========================================================
+    logger.info("   📄 Gerando resumo_por_uf.csv...")
+    
+    query_uf = session.query(
+        OperadoraORM.uf,
+        func.count(func.distinct(DespesaORM.cnpj)).label('total_operadoras'),
+        func.sum(DespesaORM.valor).label('total_despesas'),
+        func.avg(DespesaORM.valor).label('media_despesas')
+    ).join(
+        DespesaORM, OperadoraORM.cnpj == DespesaORM.cnpj
+    ).filter(
+        OperadoraORM.uf.isnot(None)
+    ).group_by(
+        OperadoraORM.uf
+    ).order_by(
+        func.sum(DespesaORM.valor).desc()
+    )
+    
+    results_uf = query_uf.all()
+    df_uf = pd.DataFrame(results_uf, columns=[
+        'UF', 'TOTAL_OPERADORAS', 'TOTAL_DESPESAS', 'MEDIA_DESPESAS'
+    ])
+    
+    for col in ['TOTAL_DESPESAS', 'MEDIA_DESPESAS']:
+        df_uf[col] = df_uf[col].round(2)
+    
+    uf_path = exports_dir / "resumo_por_uf.csv"
+    df_uf.to_csv(uf_path, index=False, encoding='utf-8-sig')
+    logger.info(f"   ✅ Salvo: {uf_path} ({len(df_uf)} UFs)")
+    
+    logger.info("📤 Exportação concluída!")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description='ETL - Dados da ANS')
-    parser.add_argument('--trimestres', type=int, default=2, help='Número de trimestres')
+    parser.add_argument('--trimestres', type=int, default=3, help='Número de trimestres (padrão: 3)')
     parser.add_argument('--skip-download', action='store_true', help='Pular download')
+    parser.add_argument('--export-csv', action='store_true', default=True, help='Exportar CSVs consolidados')
     args = parser.parse_args()
     
     print("=" * 60)
@@ -325,6 +463,14 @@ def main():
                 logger.warning(f"   ⚠️ Não foi possível baixar {trimestre}T{ano}")
         
         # =========================================================
+        # ETAPA 3: Exportar CSVs Consolidados
+        # =========================================================
+        if args.export_csv:
+            print("\n📤 ETAPA 3: Exportando CSVs Consolidados")
+            print("-" * 40)
+            exportar_csvs_consolidados(session)
+        
+        # =========================================================
         # RESUMO
         # =========================================================
         print("\n" + "=" * 60)
@@ -336,6 +482,15 @@ def main():
         
         print(f"   ✅ Operadoras: {total_operadoras}")
         print(f"   ✅ Despesas: {total_despesas}")
+        
+        # Verifica exports
+        exports_dir = Path("data/exports")
+        if exports_dir.exists():
+            exports = list(exports_dir.glob("*.csv"))
+            print(f"   ✅ CSVs exportados: {len(exports)}")
+            for exp in exports:
+                print(f"      📄 {exp.name} ({exp.stat().st_size / 1024:.1f} KB)")
+        
         print("\n🎉 ETL concluído com sucesso!")
         print("   Acesse: http://localhost:8000/api/estatisticas")
         

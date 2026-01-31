@@ -1,0 +1,69 @@
+# =============================================================
+# .dockerignore - Arquivos ignorados no build Docker
+# =============================================================
+# Este arquivo é usado pelo docker/api/Dockerfile
+# =============================================================
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Temp files
+temp_skills/
+my md archives/
+
+# Tests
+tests/
+quality_assurance/
+
+# Documentation (mantém README)
+docs/
+*.md
+!README.md
+
+# Frontend node_modules (tem seu próprio build)
+frontend/node_modules/
+frontend/dist/
+
+# Config (usa env vars no container)
+config/
+
+# Data (montado como volume)
+data/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,46 @@
+# =============================================================
+# .dockerignore.frontend - Para build do Frontend Vue.js
+# =============================================================
+
+# Git
+.git
+.gitignore
+
+# Python (não usado no frontend)
+__pycache__
+*.py[cod]
+venv/
+.venv/
+.pytest_cache/
+.coverage
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+logs/
+
+# Temp files  
+temp_skills/
+my md archives/
+quality_assurance/
+
+# Docs
+docs/
+*.md
+!README.md
+
+# Data (grande, não necessário)
+data/
+
+# Node modules do frontend (será instalado no container)
+frontend/node_modules/
+frontend/dist/
+
+# SQL e backend configs
+sql/
+docker/
+config/
+tests/
+src/

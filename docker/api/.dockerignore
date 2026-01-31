@@ -1,0 +1,70 @@
+# =============================================================
+# docker/api/.dockerignore
+# Arquivos ignorados no build da API
+# =============================================================
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Temp files
+temp_skills/
+my md archives/
+
+# Tests
+tests/
+quality_assurance/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Frontend (tem seu próprio Dockerfile)
+frontend/
+
+# Docker configs (não precisa dentro da imagem)
+docker/
+
+# Data (montado como volume)
+data/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config files (montados como volume ou via env)
+config/

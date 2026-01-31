@@ -1,0 +1,33 @@
+# =============================================================
+# docker/frontend/.dockerignore
+# Arquivos ignorados no build do frontend
+# =============================================================
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output (será gerado no container)
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git
+.gitignore
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

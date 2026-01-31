@@ -31,20 +31,24 @@ Foi adotada a **Clean Architecture** para garantir separação de responsabilida
 ### Estrutura de Camadas
 
 ```
-src/
-├── domain/          # Regras de negócio puras (sem dependências externas)
-│   └── entities.py  # Operadora, Despesa, CNPJ
+├── config/              # Configurações de ambiente
+│   └── env/             # Templates de variáveis (.env.*)
 │
-├── application/     # Orquestração e contratos
-│   └── interfaces.py # Interfaces abstratas (Repository Pattern)
+├── docker/              # Arquivos de containerização
+│   ├── api/             # Dockerfile da API
+│   └── frontend/        # Dockerfile + nginx.conf
 │
-├── infrastructure/  # Implementações concretas
-│   └── database/    # SQLAlchemy, MySQL
+├── src/                 # Código-fonte principal
+│   ├── domain/          # Regras de negócio puras
+│   ├── application/     # Interfaces e contratos
+│   ├── infrastructure/  # Implementações (DB, cache)
+│   ├── interface/       # API REST (FastAPI)
+│   └── etl/             # Pipeline de ingestão
 │
-├── interface/       # Camada de apresentação
-│   └── api/         # Routers FastAPI
-│
-└── etl/             # Pipeline de ingestão de dados
+├── frontend/            # Dashboard Vue.js
+├── tests/               # Testes automatizados
+├── sql/                 # DDL e queries
+└── data/                # Arquivos baixados/gerados
 ```
 
 ### Justificativa da Escolha
@@ -65,20 +69,108 @@ src/
 | **Pydantic V2** | Performance 10x superior à V1, integração nativa com FastAPI |
 | **Vue.js 3** | Composition API moderna, excelente developer experience |
 | **Loguru** | Logging estruturado com API simplificada |
+| **Docker** | Portabilidade garantida em qualquer ambiente |
 
 ---
 
 ## 🚀 Instruções de Execução
 
-## 🚀 Instruções de Execução
+### 🐳 Opção 1: Docker (RECOMENDADO)
 
-### Pré-requisitos
+A forma mais rápida de executar o projeto em qualquer sistema operacional.
+Usa **rede interna com IPs fixos** para evitar problemas de DNS no Windows.
 
-- **Python 3.10+** (Requisito atualizado para compatibilidade de tipos modernos)
-- MySQL 8.0+
-- Node.js 18+
+**Pré-requisitos:** Docker e Docker Compose instalados
 
-### 1. Configuração do Ambiente
+<details>
+<summary><b>🪟 Windows (PowerShell)</b></summary>
+
+```powershell
+# Clone o repositório
+git clone https://github.com/andrecodexvictor/intuitive-Care---Healthtech-de-SaaS-Vertical-test.git
+cd intuitive-Care---Healthtech-de-SaaS-Vertical-test
+
+# Opção A: Script automático (recomendado)
+.\docker-start.ps1 -WithETL
+
+# Opção B: Comandos manuais
+docker-compose up -d
+docker-compose --profile etl up etl
+```
+</details>
+
+<details>
+<summary><b>🐧 Linux / 🍎 macOS</b></summary>
+
+```bash
+# Clone o repositório
+git clone https://github.com/andrecodexvictor/intuitive-Care---Healthtech-de-SaaS-Vertical-test.git
+cd intuitive-Care---Healthtech-de-SaaS-Vertical-test
+
+# Opção A: Script automático (recomendado)
+chmod +x docker-start.sh
+./docker-start.sh --with-etl
+
+# Opção B: Comandos manuais
+docker-compose up -d
+docker-compose --profile etl up etl
+```
+</details>
+
+**Acesse:**
+- 🌐 **Frontend:** http://localhost:3000
+- 📡 **API:** http://localhost:8000
+- 📖 **Docs:** http://localhost:8000/docs
+
+**Rede Interna Docker:**
+| Serviço | IP Fixo | Porta |
+|---------|---------|-------|
+| MySQL | 172.28.1.10 | 3306 |
+| API | 172.28.1.20 | 8000 |
+| Frontend | 172.28.1.30 | 80 |
+
+**Comandos úteis:**
+```bash
+docker-compose logs -f api      # Ver logs da API
+docker-compose down             # Parar todos os serviços
+docker-compose down -v          # Parar e remover volumes (limpa banco)
+```
+
+---
+
+### 💻 Opção 2: Instalação Manual
+
+#### Pré-requisitos
+
+- **Python 3.10+**
+- **MySQL 8.0+**
+- **Node.js 18+**
+
+#### 1. Configuração do Ambiente
+
+<details>
+<summary><b>🪟 Windows</b></summary>
+
+```powershell
+# Clone o repositório
+git clone https://github.com/andrecodexvictor/intuitive-Care---Healthtech-de-SaaS-Vertical-test.git
+cd intuitive-Care---Healthtech-de-SaaS-Vertical-test
+
+# Ambiente virtual Python
+python -m venv venv
+venv\Scripts\activate
+
+# Instalação de dependências
+pip install -r requirements.txt
+
+# Copia template de variáveis de ambiente
+copy config\env\.env.example .env
+# Edite o arquivo .env com suas credenciais do MySQL
+```
+</details>
+
+<details>
+<summary><b>🐧 Linux / 🍎 macOS</b></summary>
 
 ```bash
 # Clone o repositório
@@ -86,21 +178,25 @@ git clone https://github.com/andrecodexvictor/intuitive-Care---Healthtech-de-Saa
 cd intuitive-Care---Healthtech-de-SaaS-Vertical-test
 
 # Ambiente virtual Python
-python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Linux/Mac
+python3 -m venv venv
+source venv/bin/activate
 
 # Instalação de dependências
 pip install -r requirements.txt
-```
 
-### 2. Configuração do Banco de Dados
+# Copia template de variáveis de ambiente
+cp config/env/.env.example .env
+# Edite o arquivo .env com suas credenciais do MySQL
+```
+</details>
+
+#### 2. Configuração do Banco de Dados
 
 ```bash
 mysql -u root -p -e "CREATE DATABASE intuitive_care_test CHARACTER SET utf8mb4;"
 ```
 
-Crie o arquivo `.env` na raiz do projeto:
+Edite o arquivo `.env` na raiz do projeto:
 
 ```env
 DATABASE_HOST=localhost
@@ -112,17 +208,22 @@ API_DEBUG=false
 LOG_LEVEL=INFO
 ```
 
-### 3. Carga de Dados (ETL)
+#### 3. Carga de Dados (ETL)
 
 Este projeto inclui um pipeline ETL capaz de processar milhões de registros reais da ANS.
 
 ```bash
-# Executa o pipeline completo (Download -> Processamento -> Inserção Otimizada)
+# Executa o pipeline completo (Download -> Processamento -> Inserção -> Export CSVs)
+# Processa os últimos 3 trimestres conforme requisitos
 # Duração estimada: ~10 minutos (1.4 Milhão de registros)
 python run_etl.py
+
+# Os CSVs consolidados são exportados em: data/exports/
+# - consolidado_despesas.csv
+# - despesas_agregadas.csv
 ```
 
-### 4. Execução da API
+#### 4. Execução da API
 
 ```bash
 uvicorn src.main:app --reload --port 8000
@@ -130,7 +231,7 @@ uvicorn src.main:app --reload --port 8000
 
 **Documentação disponível em:** http://localhost:8000/docs
 
-### 5. Execução do Frontend
+#### 5. Execução do Frontend
 
 ```bash
 cd frontend
