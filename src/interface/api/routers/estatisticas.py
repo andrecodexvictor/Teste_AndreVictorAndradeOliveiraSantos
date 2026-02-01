@@ -22,6 +22,7 @@ from src.interface.api.schemas import (
     EstatisticasResponse,
     TopOperadoraResponse,
     DistribuicaoUFResponse,
+    OperadoraAcimaMediaResponse,
 )
 
 
@@ -51,6 +52,8 @@ router = APIRouter(
 # =============================================================
 _cache_estatisticas = None
 _cache_timestamp = None
+_cache_acima_media = None
+_cache_acima_media_timestamp = None
 CACHE_TTL_MINUTES = 15
 
 
@@ -73,6 +76,27 @@ def set_cached_estatisticas(data):
     global _cache_estatisticas, _cache_timestamp
     _cache_estatisticas = data
     _cache_timestamp = datetime.now()
+
+
+def get_cached_acima_media():
+    """Retorna cache de operadoras acima da média."""
+    global _cache_acima_media, _cache_acima_media_timestamp
+    
+    if _cache_acima_media is None:
+        return None
+    
+    if datetime.now() - _cache_acima_media_timestamp > timedelta(minutes=CACHE_TTL_MINUTES):
+        _cache_acima_media = None
+        return None
+    
+    return _cache_acima_media
+
+
+def set_cached_acima_media(data):
+    """Armazena operadoras acima da média no cache."""
+    global _cache_acima_media, _cache_acima_media_timestamp
+    _cache_acima_media = data
+    _cache_acima_media_timestamp = datetime.now()
 
 
 # =============================================================
@@ -194,3 +218,99 @@ async def obter_distribuicao_uf(
         )
         for r in results
     ]
+
+
+# =============================================================
+# GET /api/estatisticas/operadoras-acima-media - Query 3
+# =============================================================
+@router.get(
+    "/operadoras-acima-media",
+    response_model=List[OperadoraAcimaMediaResponse],
+    summary="Operadoras com despesas acima da média em 2+ trimestres",
+    description="""
+    **Query 3 dos requisitos:** Identifica operadoras que consistentemente
+    ficaram acima da média de despesas do mercado.
+    
+    **Critério:** Operadoras que tiveram despesas acima da média geral
+    em pelo menos 2 trimestres diferentes.
+    
+    **Uso:** Identificar operadoras com despesas consistentemente altas.
+    
+    **Cache:** Resultados são cacheados por 15 minutos.
+    
+    **Rate Limit:** 50 requisições/minuto por IP (query pesada)
+    """,
+)
+@limiter.limit("50/minute")
+async def obter_operadoras_acima_media(
+    request: Request,
+    db: Session = Depends(get_db),
+    limit: int = 20,
+):
+    """
+    Query 3: Operadoras acima da média em 2+ trimestres.
+    
+    ESTRATÉGIA:
+    1. Calcula média geral de todas as despesas (valor > 0)
+    2. Para cada operadora, conta trimestres acima da média
+    3. Filtra somente operadoras com 2+ trimestres acima
+    4. Ordena por total de despesas (maior primeiro)
+    """
+    # Tenta cache
+    cached = get_cached_acima_media()
+    if cached:
+        return cached[:limit]
+    
+    # Subquery: média geral de despesas
+    media_geral_query = db.query(func.avg(DespesaORM.valor)).filter(
+        DespesaORM.valor > 0
+    ).scalar() or 0
+    
+    # Query principal: operadoras com trimestres acima da média
+    from sqlalchemy import case, literal
+    
+    results = (
+        db.query(
+            DespesaORM.cnpj,
+            OperadoraORM.razao_social,
+            func.count(DespesaORM.id).label("total_trimestres"),
+            func.sum(
+                case(
+                    (DespesaORM.valor > media_geral_query, 1),
+                    else_=0
+                )
+            ).label("trimestres_acima_media"),
+            func.avg(DespesaORM.valor).label("media_operadora"),
+            func.sum(DespesaORM.valor).label("total_despesas"),
+        )
+        .join(OperadoraORM, DespesaORM.cnpj == OperadoraORM.cnpj)
+        .filter(DespesaORM.valor > 0)
+        .group_by(DespesaORM.cnpj, OperadoraORM.razao_social)
+        .having(
+            func.sum(
+                case(
+                    (DespesaORM.valor > media_geral_query, 1),
+                    else_=0
+                )
+            ) >= 2
+        )
+        .order_by(desc(func.sum(DespesaORM.valor)))
+        .all()
+    )
+    
+    response = [
+        OperadoraAcimaMediaResponse(
+            cnpj=r.cnpj,
+            razao_social=r.razao_social,
+            total_trimestres=r.total_trimestres,
+            trimestres_acima_media=r.trimestres_acima_media,
+            media_operadora=round(float(r.media_operadora or 0), 2),
+            total_despesas=round(float(r.total_despesas or 0), 2),
+        )
+        for r in results
+    ]
+    
+    # Cache
+    set_cached_acima_media(response)
+    
+    return response[:limit]

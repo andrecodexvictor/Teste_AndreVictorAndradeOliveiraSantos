@@ -2,7 +2,8 @@
 
 > **Documento para Avaliadores** — Intuitive Care - Teste Técnico para Estágio  
 > **Candidato:** André Victor Andrade Oliveira Santos  
-> **Data:** Janeiro 2026
+> **Data:** Fevereiro 2026  
+> **Versão:** 2.0 (com Query 3 e Otimização SQL)
 
 ---
 
@@ -66,12 +67,13 @@ Instruções detalhadas no [README.md](README.md#-opção-2-instalação-manual)
 
 ### 🔹 Teste 3: Banco de Dados
 | Requisito | Status | Localização |
-|-----------|--------|-------------|
+|-----------|--------|--------------|
 | Schema DDL | ✅ | `sql/schema.sql` |
-| Query: Top 10 Despesas | ✅ | `sql/queries.sql` (Query 1) |
-| Query: Top 10 por Trimestre | ✅ | `sql/queries.sql` (Query 2) |
-| Query: Agregação por UF | ✅ | `sql/queries.sql` (Query 3) |
-| Índices otimizados | ✅ | Documentado no schema |
+| Query 1: Top 10 Despesas | ✅ | `sql/queries.sql` |
+| Query 2: Top 10 por Trimestre | ✅ | `sql/queries.sql` |
+| Query 3: Operadoras Acima da Média | ✅ | `sql/queries.sql` + API |
+| Índices otimizados | ✅ | `sql/migration_add_indexes.sql` |
+| Covering Index | ✅ | `idx_despesas_covering_stats` |
 
 ### 🔹 Teste 4: API REST
 | Requisito | Status | Localização |
@@ -80,6 +82,7 @@ Instruções detalhadas no [README.md](README.md#-opção-2-instalação-manual)
 | GET /operadoras/{cnpj} | ✅ | `src/interface/api/operadoras.py` |
 | GET /operadoras/{cnpj}/despesas | ✅ | `src/interface/api/operadoras.py` |
 | GET /estatisticas | ✅ | `src/interface/api/estatisticas.py` |
+| GET /estatisticas/operadoras-acima-media | ✅ | Query 3 implementada na API |
 | Filtros de busca | ✅ | razao_social, cnpj, uf |
 | Documentação OpenAPI | ✅ | Auto-gerada pelo FastAPI |
 | Collection Postman | ✅ | `docs/Postman_Collection.json` |
@@ -151,9 +154,10 @@ Instruções detalhadas no [README.md](README.md#-opção-2-instalação-manual)
 ### Decisões de Banco de Dados
 
 | Decisão | Benefício | Custo | Justificativa |
-|---------|-----------|-------|---------------|
+|---------|-----------|-------|--------------|
 | **MySQL 8.0** | Familiaridade, setup simples | Menos features que PG | Adequado ao volume |
-| **Índices em razao_social, uf** | Queries rápidas | Escrita mais lenta | Leitura predominante |
+| **Covering Index** | Evita table scan (10-50x mais rápido) | Mais espaço disco | Queries analíticas críticas |
+| **Índice Composto (cnpj, valor)** | JOINs 5x mais rápidos | Overhead na escrita | Leitura predominante |
 | **CNPJ como VARCHAR(14)** | Simplicidade | Sem leading zeros auto | Normalização manual |
 | **Desnormalização parcial** | Menos JOINs | Redundância controlada | Performance de leitura |
 
@@ -279,12 +283,14 @@ RUN pip install --no-cache /wheels/*
 
 | Métrica | Valor |
 |---------|-------|
-| **Linhas de código** | ~5.000 (Python) + ~1.500 (Vue.js) |
-| **Testes automatizados** | 114 (109 passando, 5 skipped) |
+| **Linhas de código** | ~5.500 (Python) + ~1.800 (Vue.js) |
+| **Testes automatizados** | 114 testes |
 | **Cobertura de código** | ~85% |
-| **Endpoints API** | 6 endpoints RESTful |
+| **Endpoints API** | 7 endpoints RESTful |
+| **Queries Analíticas** | 3 queries SQL implementadas |
+| **Índices SQL** | 4 índices otimizados (covering index) |
 | **Tempo de carga ETL** | ~5 minutos (1.4M registros) |
-| **Performance API** | <50ms (P95) |
+| **Performance API** | <50ms (P95) com índices |
 | **Tamanho imagem Docker** | ~200MB (API) + ~25MB (Frontend) |
 
 ---

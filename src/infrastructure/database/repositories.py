@@ -232,11 +232,15 @@ class DespesaRepository(IDespesaRepository):
         ).first()
         
         # Top 5 operadoras por despesa total
+        # BUGFIX: Usar JOIN com operadoras para pegar razao_social correta
+        # pois DespesaORM.razao_social pode estar vazia
         top_5 = self.db.query(
-            DespesaORM.razao_social,
+            OperadoraORM.razao_social,
             func.sum(DespesaORM.valor).label("total")
+        ).join(
+            DespesaORM, OperadoraORM.cnpj == DespesaORM.cnpj
         ).group_by(
-            DespesaORM.razao_social
+            OperadoraORM.razao_social
         ).order_by(
             desc(func.sum(DespesaORM.valor))
         ).limit(5).all()
@@ -246,7 +250,7 @@ class DespesaRepository(IDespesaRepository):
             "media_despesas": float(stats.media or 0),
             "quantidade_registros": int(stats.quantidade or 0),
             "top_5_operadoras": [
-                {"razao_social": r.razao_social, "total": float(r.total)}
+                {"razao_social": r.razao_social or "Sem Nome", "total": float(r.total)}
                 for r in top_5
             ]
         }

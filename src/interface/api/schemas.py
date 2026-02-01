@@ -121,6 +121,21 @@ class DistribuicaoUFResponse(BaseModel):
     percentual: float = Field(..., description="Percentual do total geral")
 
 
+class OperadoraAcimaMediaResponse(BaseModel):
+    """
+    Schema para operadoras que ficaram acima da média em 2+ trimestres.
+    
+    Query 3 dos requisitos: Identificar operadoras consistentemente
+    acima da média de despesas do mercado.
+    """
+    cnpj: str = Field(..., description="CNPJ da operadora")
+    razao_social: str = Field(..., description="Nome da operadora")
+    total_trimestres: int = Field(..., description="Total de trimestres com dados")
+    trimestres_acima_media: int = Field(..., description="Trimestres acima da média geral")
+    media_operadora: float = Field(..., description="Média de despesas da operadora")
+    total_despesas: float = Field(..., description="Total de despesas da operadora")
+
+
 # =============================================================
 # SCHEMAS DE PAGINAÇÃO
 # =============================================================

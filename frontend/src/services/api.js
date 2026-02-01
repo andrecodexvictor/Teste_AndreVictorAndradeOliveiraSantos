@@ -6,13 +6,15 @@
  */
 import axios from 'axios'
 
-// Base URL da API (ajustar conforme ambiente)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+// Base URL da API
+// Em produção Docker, usa URL relativa (proxy nginx)
+// Em desenvolvimento local, usa localhost:8000
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
 // Instância Axios configurada
 const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 10000,
+    timeout: 120000, // 120s timeout para queries lentas
     headers: {
         'Content-Type': 'application/json',
     },
@@ -81,6 +83,17 @@ export const estatisticasService = {
      */
     async getDistribuicaoUF() {
         const response = await api.get('/api/estatisticas/distribuicao-uf')
+        return response.data
+    },
+
+    /**
+     * Query 3: Operadoras com despesas acima da média em 2+ trimestres
+     * Identifica operadoras consistentemente acima da média do mercado
+     */
+    async getOperadorasAcimaMedia(limit = 20) {
+        const response = await api.get('/api/estatisticas/operadoras-acima-media', {
+            params: { limit }
+        })
         return response.data
     },
 }
