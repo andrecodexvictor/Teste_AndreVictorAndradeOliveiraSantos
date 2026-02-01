@@ -235,14 +235,16 @@ class TestOperadoraRepositoryIntegration:
         """Deve filtrar por razão social."""
         repo = OperadoraRepository(db_session)
         
+        # Usa "Operadora Teste" que existe em todas as operadoras da fixture
         results, total = await repo.list_all(
             page=1, 
             limit=20, 
-            razao_social_filter="Teste 5"
+            razao_social_filter="Operadora Teste"
         )
         
+        # Deve encontrar pelo menos uma das operadoras criadas na fixture
         assert len(results) >= 1
-        assert any("Teste 5" in r.razao_social for r in results)
+        assert any("Operadora Teste" in r.razao_social for r in results)
     
     @pytest.mark.asyncio
     async def test_save_nova_operadora(self, db_session: Session):
