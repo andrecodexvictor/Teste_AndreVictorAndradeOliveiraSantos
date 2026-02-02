@@ -27,6 +27,36 @@ Este projeto consiste em uma **API REST completa** para análise de despesas de 
 
 ## 🏗️ Arquitetura
 
+---
+
+## 🚀 Quick Start (Do Zero)
+
+### Passo 1: Clone e Suba os Containers
+```bash
+git clone https://github.com/andrecodexvictor/Teste_AndreVictorAndradeOliveiraSantos
+cd Teste_AndreVictorAndradeOliveiraSantos
+docker-compose up -d
+```
+
+### Passo 2: Aguarde o MySQL Inicializar (~30s)
+```bash
+# Verifique se está "healthy"
+docker-compose ps
+```
+
+### Passo 3: ⚠️ IMPORTANTE - Carregue os Dados
+O banco de dados inicia **VAZIO**. É obrigatório rodar o ETL para carregar os dados.
+```bash
+# Baixa e processa dados da ANS (~5 min, precisa de internet)
+docker-compose --profile etl up etl
+```
+
+### Passo 4: Acesse a Aplicação
+- 🌐 Dashboard: [http://localhost:3000](http://localhost:3000)
+- 📡 API: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+---
+
 Foi adotada a **Clean Architecture** para garantir separação de responsabilidades e facilitar manutenção futura.
 
 ### Estrutura de Camadas
@@ -433,6 +463,26 @@ Com mais tempo disponível, implementaria:
 4. **Cache Distribuído** (Redis) para ambiente clusterizado
 5. **Rate limiting por usuário** com JWT/API keys
 6. **Testes E2E** com Playwright
+
+---
+
+## 🔧 Troubleshooting
+
+### "Porta já em uso"
+Se as portas **3000**, **8000** ou **3307** estiverem ocupadas, edite o arquivo `docker-compose.yml`:
+```yaml
+ports:
+  - "3001:80"  # Exemplo: mude 3000 para 3001
+```
+
+### "Dashboard vazio/sem dados"
+Certifique-se de ter executado o processo de ETL:
+```bash
+docker-compose --profile etl up etl
+```
+
+### "Conexão recusada com MySQL"
+Aguarde o health check do banco de dados ser concluído. Verifique com `docker-compose ps`.
 
 ---
 

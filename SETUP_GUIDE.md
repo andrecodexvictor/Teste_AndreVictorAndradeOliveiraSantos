@@ -17,21 +17,19 @@
 
 ---
 
-## 📦 Pré-requisitos
+## ✅ Pré-requisitos de Sistema
 
-### Opção Docker (Recomendado)
-| Software | Versão Mínima | Verificar |
-|----------|---------------|-----------|
-| Docker | 20.10+ | `docker --version` |
-| Docker Compose | 2.0+ | `docker compose version` |
+- [ ] Docker Desktop instalado e **rodando**
+- [ ] Portas livres: **3000**, **8000**, **3307**
+- [ ] Conexão com internet (para o ETL baixar dados)
+- [ ] Mínimo 4GB RAM disponível
+- [ ] Mínimo 2GB espaço em disco (dados + imagens Docker)
 
-### Opção Manual
-| Software | Versão Mínima | Verificar |
-|----------|---------------|-----------|
-| Python | 3.10+ | `python --version` |
-| MySQL | 8.0+ | `mysql --version` |
-| Node.js | 18+ | `node --version` |
-| npm | 9+ | `npm --version` |
+### 📦 O que NÃO precisa instalar
+- ❌ Python
+- ❌ Node.js
+- ❌ MySQL
+- ❌ Nenhuma dependência manual
 
 ---
 
