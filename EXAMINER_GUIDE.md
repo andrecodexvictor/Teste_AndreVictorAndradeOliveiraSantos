@@ -27,11 +27,14 @@ Este documento foi criado para facilitar a avaliação técnica, destacando:
 git clone https://github.com/andrecodexvictor/Teste_AndreVictorAndradeOliveiraSantos.git
 cd Teste_AndreVictorAndradeOliveiraSantos
 
-# Execute tudo (API + Frontend + Banco + ETL)
+# 1. Suba a infraestrutura
 docker-compose up -d
+
+# 2. ⚠️ OBRIGATÓRIO: Carregue os Dados (Banco inicia vazio)
+# Requer internet para baixar ~500MB da ANS
 docker-compose --profile etl up etl
 
-# Aguarde ~3 minutos para ETL processar 1.4M registros
+# Aguarde ~5 minutos para ETL processar 1.4M registros
 ```
 
 **Acesse:**
