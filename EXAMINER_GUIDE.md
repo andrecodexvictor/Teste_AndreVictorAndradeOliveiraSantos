@@ -53,7 +53,7 @@ Instruções detalhadas no [README.md](README.md#-opção-2-instalação-manual)
 
 ## ✅ Checklist de Entregáveis
 
-### 🔹 Teste 1: Web Scraping (Análise de PDF)
+### 🔹 Teste 1: Web Scraping 
 | Requisito | Status | Localização |
 |-----------|--------|-------------|
 | Download automático | ✅ | `src/etl/downloader.py` |
